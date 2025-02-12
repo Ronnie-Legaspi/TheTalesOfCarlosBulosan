@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "playerAnimatedWithController.sln"
+    "dotnet.defaultSolution": "TheTalesOfCarlosBulosan.sln"
 }
