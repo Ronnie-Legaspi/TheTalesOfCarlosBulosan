@@ -13,15 +13,20 @@ public class PlayerController : MonoBehaviour
     public GameObject player; // Assign your character GameObject in Inspector
     public Button runButton; // Assign this in the Inspector
 
+    public LayerMask groundLayer; // Select 'Ground' layer in Inspector
+    public float raycastHeightOffset = 1.5f; // Adjust based on your player model
+    public float groundFollowSpeed = 10f; // How fast player follows ground
+
     private Vector2 moveInput;
     private PlayerInput playerInput;
     private bool isRunButtonPressed = false;
+    private Rigidbody rb;
 
     void Awake()
     {
         playerInput = GetComponent<PlayerInput>();
+        rb = GetComponent<Rigidbody>();
 
-        // ✅ Add event listeners for the UI button
         if (runButton != null)
         {
             runButton.onClick.AddListener(() => StartRunning());
@@ -30,22 +35,19 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // Read input from joystick or mobile UI
+        // Read joystick or mobile UI input
         moveInput = playerInput.actions["Move"].ReadValue<Vector2>();
 
-        // ✅ Only override moveInput if a keyboard key is pressed
+        // ✅ Override with keyboard input if available
         if (Keyboard.current != null)
         {
-            if (Keyboard.current.wKey.isPressed) moveInput.y = 1; // Move forward
-            if (Keyboard.current.sKey.isPressed) moveInput.y = -1; // Move backward
-            if (Keyboard.current.aKey.isPressed) moveInput.x = -1; // Turn left
-            if (Keyboard.current.dKey.isPressed) moveInput.x = 1; // Turn right
+            moveInput.y = Keyboard.current.wKey.isPressed ? 1 : Keyboard.current.sKey.isPressed ? -1 : 0;
+            moveInput.x = Keyboard.current.aKey.isPressed ? -1 : Keyboard.current.dKey.isPressed ? 1 : 0;
         }
 
         float horizontalMove = moveInput.x * turnSpeed * Time.deltaTime;
         float verticalMove = moveInput.y * moveSpeed * Time.deltaTime;
 
-        // ✅ Running activates when holding "R" or the UI button is pressed
         isRunning = (Keyboard.current != null && Keyboard.current.rKey.isPressed) || isRunButtonPressed;
 
         if (isRunning)
@@ -53,14 +55,12 @@ public class PlayerController : MonoBehaviour
             verticalMove = moveInput.y * runSpeed * Time.deltaTime;
         }
 
-        // Handle movement
         if (moveInput.magnitude > 0.1f)
         {
             isWalking = true;
             transform.Rotate(0, horizontalMove, 0);
             transform.Translate(Vector3.forward * verticalMove);
 
-            // ✅ Play correct animation
             if (isRunning)
             {
                 if (!player.GetComponent<Animation>().IsPlaying("Running"))
@@ -88,7 +88,6 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // ✅ Press 'H' to wave first, then talk
         if (Keyboard.current != null && Keyboard.current.hKey.wasPressedThisFrame)
         {
             isWalking = false;
@@ -97,22 +96,36 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    void FixedUpdate()
+    {
+        AdjustToGround();
+    }
+
+    void AdjustToGround()
+    {
+        RaycastHit hit;
+
+        Vector3 rayOrigin = transform.position + Vector3.up * raycastHeightOffset;
+
+        if (Physics.Raycast(rayOrigin, Vector3.down, out hit, raycastHeightOffset * 2f, groundLayer))
+        {
+            Vector3 newPosition = transform.position;
+            newPosition.y = Mathf.Lerp(transform.position.y, hit.point.y, Time.deltaTime * groundFollowSpeed);
+            transform.position = newPosition;
+        }
+    }
+
     IEnumerator WaveThenTalk()
     {
         player.GetComponent<Animation>().Play("Waving");
-
-        // Wait for the Waving animation to finish
         yield return new WaitForSeconds(player.GetComponent<Animation>()["Waving"].length);
-
-        // Start Talking animation
         player.GetComponent<Animation>().Play("Talking");
     }
 
-    // ✅ UI Button functions
     public void StartRunning()
     {
         isRunButtonPressed = true;
-        Invoke("StopRunning", 0.5f); // Simulate button hold
+        Invoke("StopRunning", 0.5f);
     }
 
     public void StopRunning()
